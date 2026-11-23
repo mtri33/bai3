@@ -21,7 +21,6 @@ export default function App() {
   const [selectedPhoto, setSelectedPhoto] = useState<number | null>(null);
   const [wishIndex, setWishIndex] = useState(0);
   const [confetti, setConfetti] = useState(false);
-  const [liked, setLiked] = useState(false);
 
   const celebrate = () => {
     setConfetti(false);
