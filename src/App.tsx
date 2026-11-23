@@ -1,6 +1,8 @@
 /* eslint-disable react-hooks/purity */
 
-import { useEffect, useState } from "react";
+import { useEffect, useRef, useState } from "react";
+
+const REMIX_AUDIO_SRC = "/audio/bui-thanh-minh-remix.mp3";
 
 const photos = [
   {
@@ -39,6 +41,27 @@ export default function App() {
   const [wishIndex, setWishIndex] = useState(0);
   const [confetti, setConfetti] = useState(false);
   const [age, setAge] = useState(0);
+  const [isPlaying, setIsPlaying] = useState(false);
+  const [currentTime, setCurrentTime] = useState(0);
+  const [duration, setDuration] = useState(0);
+
+  const handleSeek = (e: React.ChangeEvent<HTMLInputElement>) => {
+    const newTime = Number(e.target.value);
+    setCurrentTime(newTime);
+    if (audioRef.current) {
+      audioRef.current.currentTime = newTime;
+    }
+  };
+
+  const formatTime = (time: number) => {
+    if (!Number.isFinite(time) || time < 0) return "0:00";
+    const mins = Math.floor(time / 60);
+    const secs = Math.floor(time % 60);
+    return `${mins}:${secs < 10 ? "0" : ""}${secs}`;
+  };
+
+  const audioRef = useRef<HTMLAudioElement | null>(null);
+  const hasAutoStartedRef = useRef(false);
 
   useEffect(() => {
     let start = 0;
@@ -53,6 +76,55 @@ export default function App() {
     const timer = setTimeout(() => requestAnimationFrame(step), 800);
     return () => clearTimeout(timer);
   }, []);
+
+  useEffect(() => {
+    const audio = audioRef.current;
+    if (!audio) return;
+    audio.loop = true;
+    audio.volume = 0.75;
+
+    const tryAutoPlayOnFirstInteraction = () => {
+      if (hasAutoStartedRef.current || !audioRef.current) return;
+      hasAutoStartedRef.current = true;
+      audioRef.current
+        .play()
+        .then(() => {
+          setIsPlaying(true);
+        })
+        .catch(() => {
+          hasAutoStartedRef.current = false;
+        });
+    };
+
+    window.addEventListener("pointerdown", tryAutoPlayOnFirstInteraction, {
+      once: true,
+    });
+    window.addEventListener("keydown", tryAutoPlayOnFirstInteraction, {
+      once: true,
+    });
+
+    return () => {
+      window.removeEventListener("pointerdown", tryAutoPlayOnFirstInteraction);
+      window.removeEventListener("keydown", tryAutoPlayOnFirstInteraction);
+    };
+  }, []);
+
+  const toggleMusic = async () => {
+    const audio = audioRef.current;
+    if (!audio) return;
+
+    if (audio.paused) {
+      try {
+        await audio.play();
+        setIsPlaying(true);
+      } catch {
+        setIsPlaying(false);
+      }
+    } else {
+      audio.pause();
+      setIsPlaying(false);
+    }
+  };
 
   const celebrate = () => {
     setConfetti(false);
@@ -77,6 +149,15 @@ export default function App() {
 
   return (
     <main className="birthday">
+      <audio
+        ref={audioRef}
+        src={REMIX_AUDIO_SRC}
+        loop
+        preload="auto"
+        onTimeUpdate={(e) => setCurrentTime(e.currentTarget.currentTime)}
+        onLoadedMetadata={(e) => setDuration(e.currentTarget.duration)}
+      />
+
       <style>{`
         @import url('https://fonts.googleapis.com/css2?family=DM+Sans:wght@400;500;600;700;800&family=Playfair+Display:wght@400;500;600;700&family=Great+Vibes&display=swap');
         * { box-sizing: border-box; margin: 0; padding: 0; }
@@ -90,6 +171,34 @@ export default function App() {
             radial-gradient(ellipse at 50% 90%, #ffedf0 0%, transparent 45%),
             linear-gradient(165deg, #fffaf7, #ffeff3 40%, #fff8f2 75%, #fff5f0);
         }
+        .music-player { position: fixed; right: 20px; bottom: 20px; z-index: 90;
+          display: flex; flex-direction: column; gap: 8px;
+          width: 260px; max-width: calc(100vw - 28px);
+          padding: 12px 16px; border-radius: 18px;
+          border: 1px solid rgba(212, 138, 158, 0.55);
+          background: rgba(255, 250, 248, 0.9); backdrop-filter: blur(12px);
+          color: #8e4a64;
+          box-shadow: 0 12px 30px rgba(160, 100, 110, 0.22); }
+        .music-top { display: flex; align-items: center; gap: 10px;
+          border: none; background: transparent; padding: 0;
+          color: inherit; font-size: 11px; font-weight: 700;
+          letter-spacing: 0.4px; text-align: left; }
+        .music-title { white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+        .music-disc { flex-shrink: 0; display: inline-flex; align-items: center; justify-content: center;
+          width: 26px; height: 26px; border-radius: 50%;
+          background: linear-gradient(135deg, #c47b91, #e5a8a8); color: #fff; font-size: 12px; }
+        .music-disc.spinning { animation: gentleSpin 3s linear infinite; }
+        .music-seek-row { display: flex; align-items: center; gap: 8px;
+          font-size: 10px; font-weight: 600; color: #a86c7e; font-variant-numeric: tabular-nums; }
+        .music-slider { -webkit-appearance: none; appearance: none; flex: 1; height: 4px;
+          border-radius: 999px; outline: none; cursor: pointer; }
+        .music-slider::-webkit-slider-thumb { -webkit-appearance: none; appearance: none;
+          width: 12px; height: 12px; border-radius: 50%;
+          background: #b8657c; border: 2px solid #fff;
+          box-shadow: 0 2px 6px rgba(160, 100, 110, 0.35); cursor: pointer; }
+        .music-slider::-moz-range-thumb { width: 12px; height: 12px; border-radius: 50%;
+          background: #b8657c; border: 2px solid #fff;
+          box-shadow: 0 2px 6px rgba(160, 100, 110, 0.35); cursor: pointer; }
         .sparkle-bg { position: fixed; inset: 0; pointer-events: none; z-index: 1; overflow: hidden; }
         .sparkle { position: absolute; width: 4px; height: 4px; background: #f0c0cb;
           border-radius: 50%; animation: sparkleFloat 7s ease-in-out infinite; opacity: 0; }
@@ -378,6 +487,7 @@ export default function App() {
           .section { padding-left: 16px; padding-right: 16px; }
           .envelope-section { padding-left: 16px; padding-right: 16px; }
           .modal-content { padding: 40px 20px; }
+          .music-fab { right: 14px; bottom: 14px; padding: 10px 14px; }
         }
       `}</style>
       <div className="sparkle-bg">
@@ -387,6 +497,42 @@ export default function App() {
       </div>
 
       <div className="noise" />
+
+      <div className="music-player">
+        <button
+          type="button"
+          className="music-top"
+          onClick={toggleMusic}
+          title="Bật/tắt nhạc remix lặp liên tục"
+        >
+          <span className={`music-disc ${isPlaying ? "spinning" : ""}`}>
+            {isPlaying ? "❚❚" : "▶"}
+          </span>
+          <span className="music-title">
+            {isPlaying ? "Anh Bùi Thanh Minh Remix" : "Bật nhạc Remix liên tục"}
+          </span>
+        </button>
+
+        <div className="music-seek-row">
+          <span>{formatTime(currentTime)}</span>
+          <input
+            type="range"
+            className="music-slider"
+            min={0}
+            max={duration || 0}
+            step={0.1}
+            value={currentTime}
+            onChange={handleSeek}
+            aria-label="Tua nhạc"
+            style={{
+              background: `linear-gradient(to right, #c47b91 ${
+                duration ? (currentTime / duration) * 100 : 0
+              }%, #edd5dc 0%)`,
+            }}
+          />
+          <span>{formatTime(duration)}</span>
+        </div>
+      </div>
 
       <header className="topbar">
         <div className="brand">
@@ -479,7 +625,7 @@ export default function App() {
         </div>
       </section>
 
-      {/* VIDEO SECTION — Empty video tag for you to add src later */}
+      {/* VIDEO SECTION */}
       <section className="video-section">
         <div className="section-head">
           <div className="section-label">A MOVING SURPRISE</div>
@@ -489,8 +635,17 @@ export default function App() {
           </p>
         </div>
         <div className="video-container">
-          <video className="video-tag" controls preload="metadata">
-            {/* Add <source src="your-video.mp4" type="video/mp4" /> here */}
+          <video
+            className="video-tag"
+            controls
+            preload="metadata"
+            onPlay={() => {
+              if (audioRef.current && !audioRef.current.paused) {
+                audioRef.current.pause();
+                setIsPlaying(false);
+              }
+            }}
+          >
             <source
               src="/videos/gemini_generated_video_aac2d1fb.mp4"
               type="video/mp4"
@@ -516,6 +671,7 @@ export default function App() {
           </div>
         </div>
       </section>
+
       {/* CAKE & WISHES */}
       <section className="cake-section">
         <div className="section-label">MAKE A WISH</div>
