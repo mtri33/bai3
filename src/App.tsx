@@ -1,1301 +1,445 @@
-import React, { useState, useEffect, useRef } from 'react';
+import { useCallback, useEffect, useMemo, useRef, useState } from 'react'
+import type { CSSProperties, PointerEvent as RPE, ReactNode } from 'react'
 
-interface PhotoItem {
-  id: number;
-  url: string;
-  caption: string;
-  rotation: string;
-}
+/* ============ CẤU HÌNH: CHỈNH Ở ĐÂY ============ */
+const NAME = 'Bùi Thanh Minh'
+const SENDER = 'những người thương Minh'
+const CANDLES = 5
 
-interface WishCard {
-  id: number;
-  title: string;
-  icon: string;
-  message: string;
-  gradient: string;
-}
+// 👇 THÊM ĐƯỜNG DẪN ẢNH VÀO "src" CỦA 4 KHUNG
+// '/anh1.jpg' (ảnh trong thư mục public/) | link online | hoặc import anh1 from './assets/anh1.jpg' rồi src: anh1
+const PHOTOS: { src: string; caption: string }[] = [
+  { src: '', caption: 'Nụ cười rạng rỡ' },
+  { src: '', caption: 'Một ngày thật đẹp' },
+  { src: '', caption: 'Cùng nhau mãi nhé' },
+  { src: '', caption: 'Tuổi mới bắt đầu thôi' },
+]
 
-interface BalloonItem {
-  id: number;
-  color: string;
-  glow: string;
-  wish: string;
-  popped: boolean;
-}
+const MESSAGE =
+  'Chúc Minh tuổi mới thật nhiều niềm vui, sức khỏe dồi dào và những bất ngờ dễ thương. Mong mỗi ngày của Minh đều nhẹ nhàng như một bữa sáng ngon, và những dự định đang ấp ủ sẽ lần lượt thành hiện thực. Cảm ơn Minh vì đã là một người đặc biệt. Sinh nhật vui nhé!'
 
-// =========================================================================
-// 🖼️ DÁN 4 ĐƯỜNG DẪN ẢNH CỦA BẠN VÀO THUỘC TÍNH "url" BÊN DƯỚI:
-// =========================================================================
-const INITIAL_PHOTOS: PhotoItem[] = [
-  {
-    id: 1,
-    url: '', // <-- DÁN LINK ẢNH 1 VÀO ĐÂY (VD: 'https://i.imgur.com/abc.jpg' hoặc '/anh1.jpg')
-    caption: 'Khoảnh khắc rạng rỡ nhất ✨',
-    rotation: '-3deg',
-  },
-  {
-    id: 2,
-    url: '', // <-- DÁN LINK ẢNH 2 VÀO ĐÂY
-    caption: 'Kỷ niệm khó quên cùng nhau 🌟',
-    rotation: '2.5deg',
-  },
-  {
-    id: 3,
-    url: '', // <-- DÁN LINK ẢNH 3 VÀO ĐÂY
-    caption: 'Luôn vui vẻ và tỏa sáng nhé 🎂',
-    rotation: '-2deg',
-  },
-  {
-    id: 4,
-    url: '', // <-- DÁN LINK ẢNH 4 VÀO ĐÂY
-    caption: 'Tuổi mới thật nhiều thành công 🚀',
-    rotation: '3.5deg',
-  },
-];
+const BALLOONS = [
+  { c: '#FF5C9E', w: 'Mong bạn luôn được là chính mình và được yêu đúng như vậy.' },
+  { c: '#FFC857', w: 'Năm nay có thật nhiều chuyến đi và những buổi chiều rảnh rỗi.' },
+  { c: '#6EE7C8', w: 'Chúc mọi việc khó đều có người ở bên cùng gỡ.' },
+  { c: '#B9A4FF', w: 'Ước gì bạn ngủ ngon, ăn ngon và cười thật nhiều.' },
+  { c: '#7CC7FF', w: 'Mọi kế hoạch bạn đang giấu trong lòng sẽ thành thật.' },
+  { c: '#FF8A5C', w: 'Chúc bạn một năm mới nhiều tin vui hơn tin nhắn công việc.' },
+]
+/* ================================================= */
 
-const WISH_CARDS: WishCard[] = [
-  {
-    id: 1,
-    title: 'Sức Khỏe & Bình An',
-    icon: '💎',
-    message:
-      'Chúc Bùi Thanh Minh bước sang tuổi mới luôn tràn đầy năng lượng, tinh thần lạc quan, mọi điều bình an và may mắn luôn mỉm cười mỗi ngày!',
-    gradient: 'linear-gradient(135deg, #6366f1 0%, #a855f7 100%)',
-  },
-  {
-    id: 2,
-    title: 'Sự Nghiệp & Đam Mê',
-    icon: '🚀',
-    message:
-      'Chúc Minh chinh phục được mọi mục tiêu lớn trong năm nay, bứt phá giới hạn bản thân và gặt hái thật nhiều thành tựu rực rỡ!',
-    gradient: 'linear-gradient(135deg, #ec4899 0%, #f43f5e 100%)',
-  },
-  {
-    id: 3,
-    title: 'Niềm Vui & Hạnh Phúc',
-    icon: '💖',
-    message:
-      'Mong rằng mọi khoảnh khắc của tuổi mới đều ngập tràn tiếng cười, những chuyến đi đáng nhớ và luôn có những người thương yêu bên cạnh!',
-    gradient: 'linear-gradient(135deg, #f59e0b 0%, #ea580c 100%)',
-  },
-];
+const COLORS = ['#FF5C9E', '#FFC857', '#6EE7C8', '#B9A4FF', '#7CC7FF', '#FFFFFF']
+type Particle = { x: number; y: number; vx: number; vy: number; g: number; drag: number; life: number; max: number; size: number; color: string; kind: 'conf' | 'fw' | 'spark'; rot: number; vr: number }
 
-const INITIAL_BALLOONS: BalloonItem[] = [
-  {
-    id: 1,
-    color: '#ff4d94',
-    glow: 'rgba(255, 77, 148, 0.6)',
-    wish: '🎈 Bùm! Chúc Minh luôn đẹp trai & tỏa sáng!',
-    popped: false,
-  },
-  {
-    id: 2,
-    color: '#fbbf24',
-    glow: 'rgba(251, 191, 36, 0.6)',
-    wish: '✨ Bùm! Tiền vào như nước, công việc hanh thông!',
-    popped: false,
-  },
-  {
-    id: 3,
-    color: '#38bdf8',
-    glow: 'rgba(56, 189, 248, 0.6)',
-    wish: '🎉 Bùm! Vạn sự như ý, triệu điều bất ngờ!',
-    popped: false,
-  },
-  {
-    id: 4,
-    color: '#a855f7',
-    glow: 'rgba(168, 85, 247, 0.6)',
-    wish: '💫 Bùm! Hạnh phúc đong đầy suốt 365 ngày!',
-    popped: false,
-  },
-];
-
-export function App() {
-  const [giftOpened, setGiftOpened] = useState(false);
-  const [openingAnim, setOpeningAnim] = useState(false);
-  const [candlesLit, setCandlesLit] = useState<boolean[]>([true, true, true, true, true]);
-  const [wishUnlocked, setWishUnlocked] = useState(false);
-  const [flippedCards, setFlippedCards] = useState<Record<number, boolean>>({});
-  const [balloons, setBalloons] = useState<BalloonItem[]>(INITIAL_BALLOONS);
-  const [popMessage, setPopMessage] = useState<string | null>(null);
-  const [photos, setPhotos] = useState<PhotoItem[]>(INITIAL_PHOTOS);
-  const [editingPhotoId, setEditingPhotoId] = useState<number | null>(null);
-  const [tempUrl, setTempUrl] = useState('');
-  const [isPlayingMusic, setIsPlayingMusic] = useState(false);
-
-  const canvasRef = useRef<HTMLCanvasElement | null>(null);
-  const audioCtxRef = useRef<AudioContext | null>(null);
-  const musicTimerRef = useRef<number | null>(null);
-
-  // Hiệu ứng pháo hoa & kim tuyến Canvas
-  const particlesRef = useRef<
-    Array<{
-      x: number;
-      y: number;
-      vx: number;
-      vy: number;
-      size: number;
-      color: string;
-      alpha: number;
-      rotation: number;
-      vRot: number;
-      shape: 'circle' | 'rect';
-    }>
-  >([]);
-
-  const spawnConfetti = (originX?: number, originY?: number, amount = 90) => {
-    const colors = ['#fbbf24', '#ec4899', '#a855f7', '#38bdf8', '#34d399', '#ffffff'];
-    const cx = originX ?? window.innerWidth / 2;
-    const cy = originY ?? window.innerHeight / 2;
-
-    for (let i = 0; i < amount; i++) {
-      const angle = Math.random() * Math.PI * 2;
-      const speed = 3 + Math.random() * 9;
-      particlesRef.current.push({
-        x: cx,
-        y: cy,
-        vx: Math.cos(angle) * speed,
-        vy: Math.sin(angle) * speed - 3,
-        size: 5 + Math.random() * 6,
-        color: colors[Math.floor(Math.random() * colors.length)],
-        alpha: 1,
-        rotation: Math.random() * 360,
-        vRot: (Math.random() - 0.5) * 12,
-        shape: Math.random() > 0.4 ? 'rect' : 'circle',
-      });
+function useFx() {
+  const bg = useRef<HTMLCanvasElement>(null)
+  const fg = useRef<HTMLCanvasElement>(null)
+  const parts = useRef<Particle[]>([])
+  const fx = useMemo(() => {
+    const rnd = (a: number, b: number) => a + Math.random() * (b - a)
+    const pick = () => COLORS[Math.floor(Math.random() * COLORS.length)]
+    const add = (p: Partial<Particle> & Pick<Particle, 'x' | 'y' | 'kind'>) => {
+      if (parts.current.length < 1600) parts.current.push({ vx: 0, vy: 0, g: 0.2, drag: 0.985, life: 0, max: 100, size: 3, color: pick(), rot: 0, vr: 0, ...p })
     }
-  };
+    return {
+      confetti(x: number, y: number, n = 90, rain = false) {
+        for (let i = 0; i < n; i++) {
+          const a = rain ? Math.PI / 2 + rnd(-0.5, 0.5) : rnd(0, Math.PI * 2)
+          const sp = rain ? rnd(1, 4) : rnd(3, 13)
+          add({ kind: 'conf', x: rain ? rnd(0, window.innerWidth) : x, y: rain ? -10 : y, vx: Math.cos(a) * sp, vy: Math.sin(a) * sp - (rain ? 0 : 5), max: rnd(150, 260), size: rnd(6, 11), rot: rnd(0, 6.28), vr: rnd(-0.3, 0.3) })
+        }
+      },
+      firework(x: number, y: number) {
+        const base = pick()
+        for (let i = 0; i < 90; i++) {
+          const a = (i / 90) * Math.PI * 2
+          const sp = rnd(2, 7) * (i % 3 === 0 ? 0.55 : 1)
+          add({ kind: 'fw', x, y, vx: Math.cos(a) * sp, vy: Math.sin(a) * sp, g: 0.055, drag: 0.972, max: rnd(60, 100), size: rnd(1.4, 2.6), color: i % 5 === 0 ? '#fff' : base })
+        }
+      },
+      sparkle(x: number, y: number, n = 1) {
+        for (let i = 0; i < n; i++) {
+          const sp = n > 1 ? rnd(1, 5) : rnd(0, 0.8), a = rnd(0, 6.28)
+          add({ kind: 'spark', x, y, vx: Math.cos(a) * sp, vy: Math.sin(a) * sp, g: 0.03, drag: 0.96, max: rnd(25, 50), size: rnd(2, 5) })
+        }
+      },
+    }
+  }, [])
 
   useEffect(() => {
-    const canvas = canvasRef.current;
-    if (!canvas) return;
-    const ctx = canvas.getContext('2d');
-    if (!ctx) return;
-
-    const handleResize = () => {
-      canvas.width = window.innerWidth;
-      canvas.height = window.innerHeight;
-    };
-    handleResize();
-    window.addEventListener('resize', handleResize);
-
-    let animId: number;
-    const render = () => {
-      ctx.clearRect(0, 0, canvas.width, canvas.height);
-
-      particlesRef.current = particlesRef.current.filter((p) => p.alpha > 0.02);
-      for (const p of particlesRef.current) {
-        p.x += p.vx;
-        p.y += p.vy;
-        p.vy += 0.16; // trọng lực
-        p.vx *= 0.99;
-        p.alpha -= 0.011;
-        p.rotation += p.vRot;
-
-        ctx.save();
-        ctx.globalAlpha = Math.max(0, p.alpha);
-        ctx.translate(p.x, p.y);
-        ctx.rotate((p.rotation * Math.PI) / 180);
-        ctx.fillStyle = p.color;
-
-        if (p.shape === 'rect') {
-          ctx.fillRect(-p.size / 2, -p.size / 2, p.size, p.size * 0.6);
-        } else {
-          ctx.beginPath();
-          ctx.arc(0, 0, p.size / 2, 0, Math.PI * 2);
-          ctx.fill();
-        }
-        ctx.restore();
+    const bgc = bg.current!, fgc = fg.current!
+    const b = bgc.getContext('2d')!, f = fgc.getContext('2d')!
+    const dpr = Math.min(window.devicePixelRatio || 1, 2)
+    let w = 0, h = 0
+    const resize = () => {
+      w = window.innerWidth; h = window.innerHeight
+      for (const c of [bgc, fgc]) { c.width = w * dpr; c.height = h * dpr; c.style.width = w + 'px'; c.style.height = h + 'px' }
+      b.setTransform(dpr, 0, 0, dpr, 0, 0); f.setTransform(dpr, 0, 0, dpr, 0, 0)
+    }
+    resize()
+    window.addEventListener('resize', resize)
+    const stars = Array.from({ length: 150 }, () => ({ x: Math.random(), y: Math.random(), r: Math.random() * 1.3 + 0.3, sp: Math.random() * 2 + 0.6, ph: Math.random() * 6.28 }))
+    let raf = 0
+    const frame = (ms: number) => {
+      b.clearRect(0, 0, w, h); b.fillStyle = '#fff'
+      for (const s of stars) { b.globalAlpha = 0.25 + 0.75 * Math.abs(Math.sin((ms / 1000) * s.sp + s.ph)); b.beginPath(); b.arc(s.x * w, s.y * h, s.r, 0, 6.2832); b.fill() }
+      f.clearRect(0, 0, w, h); f.globalCompositeOperation = 'lighter'
+      const list = parts.current
+      for (let i = list.length - 1; i >= 0; i--) {
+        const p = list[i]
+        if (++p.life > p.max || p.y > h + 30) { list.splice(i, 1); continue }
+        p.vx *= p.drag; p.vy = p.vy * p.drag + p.g; p.x += p.vx; p.y += p.vy; p.rot += p.vr
+        f.globalAlpha = Math.min(1, (1 - p.life / p.max) * 1.6)
+        f.fillStyle = p.color; f.strokeStyle = p.color
+        if (p.kind === 'conf') { f.save(); f.translate(p.x, p.y); f.rotate(p.rot); f.scale(1, Math.cos(p.life * 0.15)); f.fillRect(-p.size / 2, -p.size / 4, p.size, p.size / 2); f.restore() }
+        else if (p.kind === 'fw') { f.lineWidth = p.size; f.lineCap = 'round'; f.beginPath(); f.moveTo(p.x - p.vx * 2.2, p.y - p.vy * 2.2); f.lineTo(p.x, p.y); f.stroke() }
+        else { f.beginPath(); f.arc(p.x, p.y, p.size * (1 - p.life / p.max), 0, 6.2832); f.fill() }
       }
-
-      animId = requestAnimationFrame(render);
-    };
-    render();
-
-    return () => {
-      cancelAnimationFrame(animId);
-      window.removeEventListener('resize', handleResize);
-    };
-  }, []);
-
-  // Giai điệu Happy Birthday bằng Web Audio API
-  const toggleBirthdayMusic = () => {
-    if (isPlayingMusic) {
-      if (musicTimerRef.current) window.clearTimeout(musicTimerRef.current);
-      setIsPlayingMusic(false);
-      return;
+      raf = requestAnimationFrame(frame)
     }
+    raf = requestAnimationFrame(frame)
+    return () => { cancelAnimationFrame(raf); window.removeEventListener('resize', resize) }
+  }, [])
+  return { bg, fg, fx }
+}
 
-    const AudioCtx = window.AudioContext || (window as unknown as { webkitAudioContext: typeof AudioContext }).webkitAudioContext;
-    if (!audioCtxRef.current) {
-      audioCtxRef.current = new AudioCtx();
+/* Nhạc Happy Birthday bằng WebAudio (không cần file mp3) */
+function playBirthday(): () => void {
+  const AC = window.AudioContext || (window as unknown as { webkitAudioContext: typeof AudioContext }).webkitAudioContext
+  const ctx = new AC()
+  const master = ctx.createGain(); master.gain.value = 0.16; master.connect(ctx.destination)
+  const [G4, A4, B4, C5, D5, E5, F5, G5] = [392, 440, 493.88, 523.25, 587.33, 659.25, 698.46, 783.99]
+  const song: [number, number][] = [
+    [G4, 0.75], [G4, 0.25], [A4, 1], [G4, 1], [C5, 1], [B4, 2],
+    [G4, 0.75], [G4, 0.25], [A4, 1], [G4, 1], [D5, 1], [C5, 2],
+    [G4, 0.75], [G4, 0.25], [G5, 1], [E5, 1], [C5, 1], [B4, 1], [A4, 2],
+    [F5, 0.75], [F5, 0.25], [E5, 1], [C5, 1], [D5, 1], [C5, 2],
+  ]
+  const beat = 0.46
+  const schedule = (start: number) => {
+    let t = start
+    for (const [fr, d] of song) {
+      const o = ctx.createOscillator(), g = ctx.createGain()
+      o.type = 'triangle'; o.frequency.value = fr
+      g.gain.setValueAtTime(0, t); g.gain.linearRampToValueAtTime(1, t + 0.02); g.gain.exponentialRampToValueAtTime(0.001, t + d * beat * 0.95)
+      o.connect(g); g.connect(master); o.start(t); o.stop(t + d * beat); t += d * beat
     }
-    const ctx = audioCtxRef.current;
-    if (ctx.state === 'suspended') ctx.resume();
+    return t
+  }
+  let end = schedule(ctx.currentTime + 0.05)
+  const id = window.setInterval(() => { if (ctx.currentTime > end - 0.5) end = schedule(end + 1) }, 400)
+  return () => { window.clearInterval(id); void ctx.close() }
+}
 
-    setIsPlayingMusic(true);
+function useTypewriter(text: string, active: boolean) {
+  const [n, setN] = useState(0)
+  useEffect(() => {
+    if (!active) { setN(0); return }
+    const id = window.setInterval(() => setN((v) => (v >= text.length ? (window.clearInterval(id), v) : v + 1)), 28)
+    return () => window.clearInterval(id)
+  }, [active, text])
+  return text.slice(0, n)
+}
 
-    // Nốt nhạc Happy Birthday (tần số Hz, độ dài giây)
-    const melody: [number, number][] = [
-      [261.63, 0.3], [261.63, 0.3], [293.66, 0.6], [261.63, 0.6], [349.23, 0.6], [329.63, 1.0],
-      [261.63, 0.3], [261.63, 0.3], [293.66, 0.6], [261.63, 0.6], [392.00, 0.6], [349.23, 1.0],
-      [261.63, 0.3], [261.63, 0.3], [523.25, 0.6], [440.00, 0.6], [349.23, 0.6], [329.63, 0.6], [293.66, 1.0],
-      [466.16, 0.3], [466.16, 0.3], [440.00, 0.6], [349.23, 0.6], [392.00, 0.6], [349.23, 1.2],
-    ];
+const SPRINKLES = Array.from({ length: 22 }, (_, i) => (i < 12
+  ? { x: 92 + ((i * 53) % 216), y: 238 + ((i * 29) % 48), r: (i * 37) % 180, c: COLORS[i % 5] }
+  : { x: 128 + ((i * 41) % 144), y: 172 + ((i * 13) % 24), r: (i * 53) % 180, c: COLORS[(i + 2) % 5] }))
 
-    let noteIdx = 0;
-    const playNext = () => {
-      if (!audioCtxRef.current) return;
-      const [freq, dur] = melody[noteIdx];
-      const now = audioCtxRef.current.currentTime;
+function Cake({ lit, onBlow }: { lit: boolean[]; onBlow: (i: number) => void }) {
+  const xs = lit.map((_, i) => 200 + (i - (lit.length - 1) / 2) * 30)
+  return (
+    <svg className="cake" viewBox="0 0 400 340" role="img" aria-label="Chiếc bánh sinh nhật">
+      <defs>
+        <linearGradient id="gP" x1="0" y1="0" x2="0" y2="1"><stop offset="0" stopColor="#FF7BB0" /><stop offset="1" stopColor="#E23F83" /></linearGradient>
+        <linearGradient id="gL" x1="0" y1="0" x2="0" y2="1"><stop offset="0" stopColor="#CDBDFF" /><stop offset="1" stopColor="#8E74F2" /></linearGradient>
+        <radialGradient id="gF" cx=".5" cy=".7" r=".6"><stop offset="0" stopColor="#FFF6CC" /><stop offset=".5" stopColor="#FFC857" /><stop offset="1" stopColor="#FF7A3D" /></radialGradient>
+        <radialGradient id="gG"><stop offset="0" stopColor="#FFC857" stopOpacity=".5" /><stop offset="1" stopColor="#FFC857" stopOpacity="0" /></radialGradient>
+      </defs>
+      <ellipse cx="200" cy="304" rx="172" ry="22" fill="#2B2360" />
+      <ellipse cx="200" cy="298" rx="172" ry="22" fill="#3A3080" />
+      <rect x="70" y="200" width="260" height="96" rx="22" fill="url(#gP)" />
+      <rect x="70" y="200" width="260" height="26" rx="14" fill="#FFF1F6" />
+      {Array.from({ length: 10 }, (_, i) => <circle key={i} cx={83 + i * 26} cy={226} r={i % 2 ? 11 : 13} fill="#FFF1F6" />)}
+      <rect x="110" y="135" width="180" height="68" rx="18" fill="url(#gL)" />
+      <rect x="110" y="135" width="180" height="20" rx="12" fill="#FFF1F6" />
+      {Array.from({ length: 7 }, (_, i) => <circle key={i} cx={122 + i * 26} cy={155} r={i % 2 ? 10 : 12} fill="#FFF1F6" />)}
+      {SPRINKLES.map((s, i) => <rect key={i} x={s.x} y={s.y} width="9" height="3" rx="1.5" fill={s.c} transform={`rotate(${s.r} ${s.x} ${s.y})`} />)}
+      {xs.map((x, i) => (
+        <g key={i}>
+          <rect x={x - 5} y={98} width="10" height="40" rx="3" fill="#FFF1F6" />
+          <rect x={x - 5} y={108} width="10" height="5" fill="#FF7BB0" /><rect x={x - 5} y={122} width="10" height="5" fill="#FF7BB0" />
+          <g transform={`translate(${x} 94)`} role="button" tabIndex={0} aria-label={`Thổi nến ${i + 1}`} className="wick"
+            onClick={() => onBlow(i)} onKeyDown={(e) => { if (e.key === 'Enter' || e.key === ' ') onBlow(i) }}>
+            {lit[i] ? (
+              <>
+                <circle r="26" cy="-14" fill="url(#gG)" />
+                <g className="flame"><path d="M0 -30 C9 -17 10 -4 0 5 C-10 -4 -9 -17 0 -30Z" fill="url(#gF)" /><path d="M0 -14 C4 -8 4 -2 0 1 C-4 -2 -4 -8 0 -14Z" fill="#FFF6CC" /></g>
+              </>
+            ) : (
+              <path className="smoke" d="M0 0 C-8 -12 8 -20 0 -34 C-6 -44 4 -50 0 -60" fill="none" stroke="#cfc6ff" strokeWidth="2.5" strokeLinecap="round" />
+            )}
+            <circle r="22" cy="-14" fill="transparent" />
+          </g>
+        </g>
+      ))}
+    </svg>
+  )
+}
 
-      const osc = audioCtxRef.current.createOscillator();
-      const gain = audioCtxRef.current.createGain();
-      osc.type = 'triangle';
-      osc.frequency.setValueAtTime(freq, now);
+function Tilt({ rot, children, onActivate }: { rot: number; children: ReactNode; onActivate: (el: HTMLElement) => void }) {
+  const ref = useRef<HTMLDivElement>(null)
+  const move = (e: RPE<HTMLDivElement>) => {
+    const el = ref.current; if (!el) return
+    const r = el.getBoundingClientRect(), px = (e.clientX - r.left) / r.width, py = (e.clientY - r.top) / r.height
+    el.style.setProperty('--ry', `${(px - 0.5) * 20}deg`); el.style.setProperty('--rx', `${-(py - 0.5) * 20}deg`)
+    el.style.setProperty('--gx', `${px * 100}%`); el.style.setProperty('--gy', `${py * 100}%`); el.style.setProperty('--glare', '1')
+  }
+  const leave = () => { const el = ref.current; if (!el) return; el.style.setProperty('--rx', '0deg'); el.style.setProperty('--ry', '0deg'); el.style.setProperty('--glare', '0') }
+  const go = () => ref.current && onActivate(ref.current)
+  return (
+    <div ref={ref} className="tilt" style={{ '--rot': `${rot}deg` } as CSSProperties} role="button" tabIndex={0}
+      onPointerMove={move} onPointerLeave={leave} onClick={go} onKeyDown={(e) => { if (e.key === 'Enter' || e.key === ' ') { e.preventDefault(); go() } }}>
+      {children}
+    </div>
+  )
+}
 
-      gain.gain.setValueAtTime(0.001, now);
-      gain.gain.exponentialRampToValueAtTime(0.14, now + 0.04);
-      gain.gain.exponentialRampToValueAtTime(0.001, now + dur * 0.95);
+const VARIANTS = ['polaroid', 'gold', 'neon', 'arch']
+const ROTS = [-3, 2.5, -2, 3]
 
-      osc.connect(gain);
-      gain.connect(audioCtxRef.current.destination);
+export default function App() {
+  const { bg, fg, fx } = useFx()
+  const [lit, setLit] = useState<boolean[]>(() => Array(CANDLES).fill(true))
+  const [celebrate, setCelebrate] = useState(false)
+  const [mic, setMic] = useState<'idle' | 'on' | 'denied'>('idle')
+  const [music, setMusic] = useState(false)
+  const [popped, setPopped] = useState<boolean[]>(() => Array(BALLOONS.length).fill(false))
+  const [wish, setWish] = useState<string | null>(null)
+  const meter = useRef<HTMLSpanElement>(null)
+  const micRef = useRef<{ stop: () => void } | null>(null)
+  const stopMusic = useRef<(() => void) | null>(null)
+  const reduced = useMemo(() => window.matchMedia('(prefers-reduced-motion: reduce)').matches, [])
+  const litCount = lit.filter(Boolean).length
+  const typed = useTypewriter(MESSAGE, celebrate)
 
-      osc.start(now);
-      osc.stop(now + dur);
+  const stopMic = useCallback(() => { micRef.current?.stop(); micRef.current = null; setMic((m) => (m === 'on' ? 'idle' : m)) }, [])
+  const blow = useCallback((i?: number) => setLit((prev) => {
+    const idx = i !== undefined ? (prev[i] ? i : -1) : prev.indexOf(true)
+    if (idx < 0) return prev
+    const n = [...prev]; n[idx] = false; return n
+  }), [])
 
-      noteIdx = (noteIdx + 1) % melody.length;
-      musicTimerRef.current = window.setTimeout(playNext, dur * 1000 + 40);
-    };
-
-    playNext();
-  };
+  const startMic = async () => {
+    try {
+      const stream = await navigator.mediaDevices.getUserMedia({ audio: true })
+      const ctx = new AudioContext(), an = ctx.createAnalyser()
+      an.fftSize = 1024; ctx.createMediaStreamSource(stream).connect(an)
+      const buf = new Uint8Array(an.fftSize)
+      let raf = 0, last = 0
+      const loop = (t: number) => {
+        an.getByteTimeDomainData(buf)
+        let s = 0; for (const v of buf) { const d = (v - 128) / 128; s += d * d }
+        const rms = Math.sqrt(s / buf.length)
+        if (meter.current) meter.current.style.transform = `scaleX(${Math.min(1, rms * 3)})`
+        if (rms > 0.16 && t - last > 220) { last = t; blow() }
+        raf = requestAnimationFrame(loop)
+      }
+      raf = requestAnimationFrame(loop)
+      micRef.current = { stop: () => { cancelAnimationFrame(raf); stream.getTracks().forEach((tr) => tr.stop()); void ctx.close() } }
+      setMic('on')
+    } catch { setMic('denied') }
+  }
 
   useEffect(() => {
-    return () => {
-      if (musicTimerRef.current) window.clearTimeout(musicTimerRef.current);
-    };
-  }, []);
+    if (litCount !== 0) return
+    setCelebrate(true); stopMic()
+    const w = window.innerWidth, h = window.innerHeight
+    fx.confetti(w / 2, h * 0.35, 160)
+    const ts = [0, 350, 700, 1100, 1500].map((d) => window.setTimeout(() => fx.firework(w * (0.15 + Math.random() * 0.7), h * (0.15 + Math.random() * 0.35)), d))
+    const rain = window.setInterval(() => fx.confetti(0, 0, 5, true), 120)
+    const end = window.setTimeout(() => window.clearInterval(rain), 4000)
+    return () => { ts.forEach(clearTimeout); clearInterval(rain); clearTimeout(end) }
+  }, [litCount, fx, stopMic])
 
-  // Mở hộp quà
-  const handleOpenGift = () => {
-    if (openingAnim) return;
-    setOpeningAnim(true);
-    spawnConfetti(window.innerWidth / 2, window.innerHeight / 2, 140);
-    if (!isPlayingMusic) {
-      toggleBirthdayMusic();
-    }
-    setTimeout(() => {
-      setGiftOpened(true);
-      setTimeout(() => {
-        spawnConfetti(window.innerWidth * 0.25, window.innerHeight * 0.35, 70);
-        spawnConfetti(window.innerWidth * 0.75, window.innerHeight * 0.35, 70);
-      }, 300);
-    }, 650);
-  };
+  useEffect(() => () => { micRef.current?.stop(); stopMusic.current?.() }, [])
 
-  // Thổi 1 cây nến hoặc thổi tất cả
-  const toggleSingleCandle = (index: number) => {
-    setCandlesLit((prev) => {
-      const updated = [...prev];
-      updated[index] = !updated[index];
-      if (updated.every((lit) => !lit)) {
-        setWishUnlocked(true);
-        spawnConfetti(window.innerWidth / 2, window.innerHeight * 0.45, 130);
-      }
-      return updated;
-    });
-  };
+  const relight = () => { setLit(Array(CANDLES).fill(true)); setCelebrate(false); setWish(null) }
+  const toggleMusic = () => {
+    if (music) { stopMusic.current?.(); stopMusic.current = null; setMusic(false) }
+    else { stopMusic.current = playBirthday(); setMusic(true) }
+  }
+  const pop = (i: number, el: HTMLElement) => {
+    const r = el.getBoundingClientRect()
+    fx.confetti(r.left + r.width / 2, r.top + r.height / 3, 45)
+    setPopped((p) => p.map((v, j) => (j === i ? true : v))); setWish(BALLOONS[i].w)
+    window.setTimeout(() => setPopped((p) => p.map((v, j) => (j === i ? false : v))), 3800)
+  }
+  const onDown = (e: RPE<HTMLDivElement>) => { if (!(e.target as HTMLElement).closest('button,[role="button"]')) fx.sparkle(e.clientX, e.clientY, 16) }
+  const onMove = (e: RPE<HTMLDivElement>) => { if (!reduced && e.pointerType === 'mouse' && Math.random() < 0.6) fx.sparkle(e.clientX, e.clientY) }
 
-  const blowAllCandles = () => {
-    setCandlesLit([false, false, false, false, false]);
-    setWishUnlocked(true);
-    spawnConfetti(window.innerWidth / 2, window.innerHeight * 0.4, 150);
-  };
-
-  const relightCandles = () => {
-    setCandlesLit([true, true, true, true, true]);
-    setWishUnlocked(false);
-  };
-
-  // Nổ bóng bay
-  const handlePopBalloon = (id: number, e: React.MouseEvent) => {
-    const rect = (e.currentTarget as HTMLElement).getBoundingClientRect();
-    spawnConfetti(rect.left + rect.width / 2, rect.top + rect.height / 2, 45);
-    setBalloons((prev) =>
-      prev.map((b) => {
-        if (b.id === id) {
-          setPopMessage(b.wish);
-          return { ...b, popped: true };
-        }
-        return b;
-      })
-    );
-  };
-
-  // Lưu URL ảnh nhanh
-  const handleSavePhotoUrl = (id: number) => {
-    setPhotos((prev) =>
-      prev.map((p) => (p.id === id ? { ...p, url: tempUrl.trim() } : p))
-    );
-    setEditingPhotoId(null);
-    setTempUrl('');
-    spawnConfetti(window.innerWidth / 2, window.innerHeight / 2, 50);
-  };
+  const words = NAME.split(' ')
+  const offs = words.reduce<number[]>((a, _, i) => (a.push(i === 0 ? 0 : a[i - 1] + [...words[i - 1]].length), a), [])
+  const status = celebrate ? 'Điều ước đã bay lên rồi. Chúc Minh một tuổi mới thật rực rỡ!'
+    : mic === 'on' ? 'Đang nghe… hãy thổi thật mạnh vào micro'
+    : mic === 'denied' ? 'Không bật được micro. Chạm vào từng ngọn lửa để thổi tắt nhé'
+    : 'Ước một điều ước, rồi thổi nến bằng micro hoặc chạm vào từng ngọn lửa'
 
   return (
-    <div className="bday-root">
-      <style>{`
-        * {
-          box-sizing: border-box;
-          margin: 0;
-          padding: 0;
-        }
-
-        .bday-root {
-          min-height: 100vh;
-          width: 100%;
-          background: radial-gradient(circle at 20% 20%, #2e1065 0%, #1e1b4b 45%, #090d16 100%);
-          color: #f8fafc;
-          font-family: 'Plus Jakarta Sans', system-ui, -apple-system, sans-serif;
-          overflow-x: hidden;
-          position: relative;
-          padding-bottom: 80px;
-        }
-
-        /* Đốm sáng nền lấp lánh */
-        .ambient-orb {
-          position: fixed;
-          border-radius: 50%;
-          filter: blur(90px);
-          pointer-events: none;
-          z-index: 0;
-          opacity: 0.45;
-          animation: floatOrb 10s ease-in-out infinite alternate;
-        }
-        .orb-1 {
-          width: 380px;
-          height: 380px;
-          background: #db2777;
-          top: -80px;
-          left: -80px;
-        }
-        .orb-2 {
-          width: 420px;
-          height: 420px;
-          background: #7c3aed;
-          bottom: 5%;
-          right: -100px;
-          animation-delay: -4s;
-        }
-        .orb-3 {
-          width: 300px;
-          height: 300px;
-          background: #f59e0b;
-          top: 45%;
-          left: 35%;
-          opacity: 0.22;
-          animation-delay: -7s;
-        }
-
-        @keyframes floatOrb {
-          0% { transform: translate(0, 0) scale(1); }
-          100% { transform: translate(35px, -30px) scale(1.12); }
-        }
-
-        .confetti-canvas {
-          position: fixed;
-          inset: 0;
-          pointer-events: none;
-          z-index: 999;
-        }
-
-        /* Màn mở hộp quà đầu tiên */
-        .gift-intro {
-          min-height: 100vh;
-          display: flex;
-          flex-direction: column;
-          align-items: center;
-          justify-content: center;
-          position: relative;
-          z-index: 10;
-          padding: 24px;
-          text-align: center;
-        }
-
-        .intro-badge {
-          background: rgba(255, 255, 255, 0.1);
-          border: 1px solid rgba(251, 191, 36, 0.45);
-          color: #fde68a;
-          padding: 8px 20px;
-          border-radius: 999px;
-          font-size: 0.9rem;
-          font-weight: 600;
-          letter-spacing: 0.06em;
-          text-transform: uppercase;
-          margin-bottom: 24px;
-          backdrop-filter: blur(10px);
-        }
-
-        .intro-title {
-          font-family: 'Playfair Display', serif;
-          font-size: clamp(2rem, 5vw, 3.4rem);
-          background: linear-gradient(to right, #fff, #fde68a, #f472b6);
-          -webkit-background-clip: text;
-          -webkit-text-fill-color: transparent;
-          margin-bottom: 12px;
-        }
-
-        .intro-sub {
-          color: #cbd5e1;
-          font-size: 1.05rem;
-          margin-bottom: 44px;
-        }
-
-        .gift-box-wrapper {
-          cursor: pointer;
-          position: relative;
-          width: 170px;
-          height: 170px;
-          display: flex;
-          align-items: center;
-          justify-content: center;
-          animation: giftBounce 2s ease-in-out infinite;
-          transition: transform 0.3s ease;
-        }
-        .gift-box-wrapper:hover {
-          transform: scale(1.08);
-        }
-        .gift-box-wrapper.opening {
-          animation: giftShake 0.6s ease-in-out forwards;
-        }
-
-        .gift-glow {
-          position: absolute;
-          width: 180px;
-          height: 180px;
-          border-radius: 50%;
-          background: radial-gradient(circle, rgba(244,114,182,0.55) 0%, rgba(251,191,36,0) 70%);
-          animation: pulseGlow 2s infinite;
-        }
-
-        .gift-base {
-          width: 130px;
-          height: 105px;
-          background: linear-gradient(135deg, #ec4899, #be185d);
-          border-radius: 12px;
-          position: relative;
-          box-shadow: 0 20px 45px rgba(236, 72, 153, 0.45);
-          display: flex;
-          justify-content: center;
-        }
-        .gift-base::before {
-          content: '';
-          width: 26px;
-          height: 100%;
-          background: linear-gradient(to bottom, #fde047, #f59e0b);
-        }
-
-        .gift-lid {
-          position: absolute;
-          top: 12px;
-          width: 146px;
-          height: 32px;
-          background: linear-gradient(135deg, #f472b6, #db2777);
-          border-radius: 8px;
-          box-shadow: 0 6px 15px rgba(0, 0, 0, 0.3);
-          display: flex;
-          justify-content: center;
-          transition: transform 0.5s cubic-bezier(0.34, 1.56, 0.64, 1);
-        }
-        .gift-lid::before {
-          content: '';
-          width: 26px;
-          height: 100%;
-          background: #fde047;
-        }
-        .gift-bow {
-          position: absolute;
-          top: -16px;
-          font-size: 32px;
-          filter: drop-shadow(0 4px 6px rgba(0,0,0,0.3));
-        }
-
-        .gift-box-wrapper.opening .gift-lid {
-          transform: translateY(-65px) rotate(-18deg);
-        }
-
-        @keyframes giftBounce {
-          0%, 100% { transform: translateY(0); }
-          50% { transform: translateY(-12px); }
-        }
-        @keyframes giftShake {
-          0% { transform: scale(1) rotate(0deg); }
-          25% { transform: scale(1.1) rotate(-8deg); }
-          50% { transform: scale(1.15) rotate(8deg); }
-          75% { transform: scale(1.2) rotate(-5deg); }
-          100% { transform: scale(1.35); opacity: 0; }
-        }
-        @keyframes pulseGlow {
-          0%, 100% { transform: scale(0.95); opacity: 0.7; }
-          50% { transform: scale(1.2); opacity: 1; }
-        }
-
-        /* Nội dung chính */
-        .main-container {
-          max-width: 1120px;
-          margin: 0 auto;
-          padding: 36px 20px;
-          position: relative;
-          z-index: 5;
-          animation: fadeInUp 0.9s ease forwards;
-        }
-
-        @keyframes fadeInUp {
-          from { opacity: 0; transform: translateY(30px); }
-          to { opacity: 1; transform: translateY(0); }
-        }
-
-        /* Bóng bay tương tác */
-        .balloons-row {
-          display: flex;
-          justify-content: center;
-          gap: 24px;
-          margin-bottom: 18px;
-          flex-wrap: wrap;
-        }
-
-        .balloon-item {
-          width: 56px;
-          height: 68px;
-          border-radius: 50% 50% 50% 50% / 45% 45% 55% 55%;
-          cursor: pointer;
-          position: relative;
-          display: flex;
-          align-items: center;
-          justify-content: center;
-          font-size: 1.2rem;
-          transition: transform 0.25s ease;
-          animation: floatBalloon 3.2s ease-in-out infinite alternate;
-        }
-        .balloon-item:nth-child(2) { animation-delay: -0.8s; }
-        .balloon-item:nth-child(3) { animation-delay: -1.6s; }
-        .balloon-item:nth-child(4) { animation-delay: -2.4s; }
-
-        .balloon-item:hover {
-          transform: scale(1.15) translateY(-6px);
-        }
-        .balloon-item::after {
-          content: '';
-          position: absolute;
-          bottom: -22px;
-          width: 1.5px;
-          height: 22px;
-          background: rgba(255, 255, 255, 0.45);
-        }
-        .balloon-popped {
-          width: 56px;
-          height: 68px;
-          display: flex;
-          align-items: center;
-          justify-content: center;
-          font-size: 1.5rem;
-          opacity: 0.7;
-        }
-
-        @keyframes floatBalloon {
-          0% { transform: translateY(0) rotate(-3deg); }
-          100% { transform: translateY(-12px) rotate(3deg); }
-        }
-
-        .pop-banner {
-          text-align: center;
-          margin: 0 auto 24px;
-          padding: 10px 22px;
-          max-width: 520px;
-          border-radius: 999px;
-          background: rgba(251, 191, 36, 0.16);
-          border: 1px solid rgba(251, 191, 36, 0.45);
-          color: #fde68a;
-          font-weight: 600;
-          font-size: 0.95rem;
-          animation: fadeInUp 0.35s ease;
-        }
-
-        /* Hero Banner */
-        .hero-header {
-          text-align: center;
-          margin-bottom: 48px;
-        }
-
-        .hero-subtitle {
-          font-family: 'Dancing Script', cursive;
-          font-size: clamp(1.8rem, 4vw, 2.5rem);
-          color: #f472b6;
-          margin-bottom: 8px;
-        }
-
-        .hero-name {
-          font-family: 'Playfair Display', serif;
-          font-size: clamp(2.6rem, 6.5vw, 4.6rem);
-          font-weight: 700;
-          line-height: 1.15;
-          background: linear-gradient(120deg, #ffffff 10%, #fde68a 45%, #f472b6 75%, #c084fc 100%);
-          -webkit-background-clip: text;
-          -webkit-text-fill-color: transparent;
-          filter: drop-shadow(0 6px 24px rgba(236, 72, 153, 0.3));
-          margin-bottom: 16px;
-        }
-
-        .hero-desc {
-          max-width: 640px;
-          margin: 0 auto;
-          color: #cbd5e1;
-          font-size: 1.08rem;
-          line-height: 1.7;
-        }
-
-        /* Khu vực Bánh Sinh Nhật & Thổi Nến */
-        .cake-section {
-          background: rgba(255, 255, 255, 0.04);
-          border: 1px solid rgba(255, 255, 255, 0.12);
-          backdrop-filter: blur(16px);
-          border-radius: 28px;
-          padding: 36px 24px;
-          margin-bottom: 56px;
-          text-align: center;
-          box-shadow: 0 24px 60px rgba(0, 0, 0, 0.35);
-        }
-
-        .section-heading {
-          font-family: 'Playfair Display', serif;
-          font-size: clamp(1.6rem, 3.5vw, 2.2rem);
-          color: #fde68a;
-          margin-bottom: 8px;
-        }
-
-        .section-hint {
-          color: #94a3b8;
-          font-size: 0.95rem;
-          margin-bottom: 32px;
-        }
-
-        .cake-stage {
-          display: flex;
-          flex-direction: column;
-          align-items: center;
-          justify-content: center;
-          margin: 12px auto 28px;
-        }
-
-        .candles-row {
-          display: flex;
-          gap: 22px;
-          margin-bottom: -4px;
-          z-index: 3;
-        }
-
-        .candle-unit {
-          cursor: pointer;
-          display: flex;
-          flex-direction: column;
-          align-items: center;
-          transition: transform 0.2s ease;
-        }
-        .candle-unit:hover {
-          transform: scale(1.12);
-        }
-
-        .flame {
-          width: 14px;
-          height: 22px;
-          background: radial-gradient(ellipse at bottom, #ffffff 10%, #fde047 50%, #f97316 90%);
-          border-radius: 50% 50% 35% 35%;
-          box-shadow: 0 0 14px #fbbf24, 0 0 28px #f97316;
-          margin-bottom: 4px;
-          animation: flicker 0.65s infinite alternate;
-        }
-
-        .smoke {
-          width: 10px;
-          height: 22px;
-          margin-bottom: 4px;
-          position: relative;
-        }
-        .smoke::after {
-          content: '☁';
-          font-size: 14px;
-          color: rgba(203, 213, 225, 0.6);
-          position: absolute;
-          left: -2px;
-          animation: smokeRise 1.6s ease-out forwards;
-        }
-
-        @keyframes flicker {
-          0% { transform: scale(1) rotate(-3deg); }
-          100% { transform: scale(1.08, 0.94) rotate(3deg); }
-        }
-        @keyframes smokeRise {
-          0% { opacity: 0.8; transform: translateY(0) scale(0.7); }
-          100% { opacity: 0; transform: translateY(-24px) scale(1.4); }
-        }
-
-        .candle-stick {
-          width: 10px;
-          height: 42px;
-          border-radius: 4px 4px 0 0;
-          background: repeating-linear-gradient(
-            45deg,
-            #f472b6,
-            #f472b6 5px,
-            #ffffff 5px,
-            #ffffff 10px
-          );
-        }
-
-        .cake-top-tier {
-          width: 190px;
-          height: 54px;
-          background: linear-gradient(180deg, #fbcfe8 0%, #f472b6 100%);
-          border-radius: 16px 16px 6px 6px;
-          position: relative;
-          box-shadow: inset 0 -6px 0 rgba(190, 24, 93, 0.25);
-        }
-
-        .cake-bottom-tier {
-          width: 260px;
-          height: 68px;
-          background: linear-gradient(180deg, #c084fc 0%, #7e22ce 100%);
-          border-radius: 14px 14px 18px 18px;
-          position: relative;
-          display: flex;
-          align-items: center;
-          justify-content: center;
-          font-family: 'Dancing Script', cursive;
-          font-size: 1.45rem;
-          color: #fef08a;
-          box-shadow: 0 14px 30px rgba(0, 0, 0, 0.45);
-        }
-
-        .cake-plate {
-          width: 300px;
-          height: 12px;
-          background: linear-gradient(90deg, #94a3b8, #f8fafc, #94a3b8);
-          border-radius: 999px;
-          margin-top: 2px;
-        }
-
-        .btn-action {
-          background: linear-gradient(135deg, #f59e0b 0%, #ec4899 100%);
-          color: #fff;
-          border: none;
-          padding: 13px 28px;
-          border-radius: 999px;
-          font-size: 1rem;
-          font-weight: 700;
-          cursor: pointer;
-          box-shadow: 0 10px 25px rgba(236, 72, 153, 0.4);
-          transition: transform 0.2s ease, box-shadow 0.2s ease;
-        }
-        .btn-action:hover {
-          transform: translateY(-2px) scale(1.03);
-          box-shadow: 0 14px 30px rgba(236, 72, 153, 0.55);
-        }
-
-        .btn-secondary {
-          background: rgba(255, 255, 255, 0.1);
-          color: #f8fafc;
-          border: 1px solid rgba(255, 255, 255, 0.25);
-          padding: 11px 24px;
-          border-radius: 999px;
-          font-size: 0.95rem;
-          font-weight: 600;
-          cursor: pointer;
-          transition: background 0.2s ease;
-        }
-        .btn-secondary:hover {
-          background: rgba(255, 255, 255, 0.18);
-        }
-
-        .secret-wish-box {
-          margin: 24px auto 0;
-          max-width: 580px;
-          padding: 22px 26px;
-          border-radius: 20px;
-          background: linear-gradient(135deg, rgba(251, 191, 36, 0.18), rgba(236, 72, 153, 0.18));
-          border: 1px solid rgba(253, 224, 71, 0.5);
-          animation: fadeInUp 0.5s ease;
-        }
-
-        /* 4 Khung Ảnh Kỷ Niệm (Polaroid Gallery) */
-        .gallery-section {
-          margin-bottom: 60px;
-        }
-
-        .gallery-header {
-          text-align: center;
-          margin-bottom: 36px;
-        }
-
-        .photo-grid {
-          display: grid;
-          grid-template-columns: repeat(auto-fit, minmax(235px, 1fr));
-          gap: 28px;
-          padding: 8px;
-        }
-
-        .polaroid-card {
-          background: linear-gradient(180deg, #ffffff 0%, #f8fafc 100%);
-          padding: 14px 14px 20px;
-          border-radius: 16px;
-          box-shadow: 0 18px 40px rgba(0, 0, 0, 0.45), 0 0 0 1px rgba(253, 224, 71, 0.45);
-          color: #1e293b;
-          transition: transform 0.35s cubic-bezier(0.34, 1.56, 0.64, 1), box-shadow 0.35s ease;
-          position: relative;
-        }
-
-        .polaroid-card:hover {
-          transform: rotate(0deg) scale(1.05) translateY(-8px) !important;
-          box-shadow: 0 26px 55px rgba(236, 72, 153, 0.35), 0 0 0 2px #fbbf24;
-          z-index: 10;
-        }
-
-        .polaroid-pin {
-          position: absolute;
-          top: -10px;
-          left: 50%;
-          transform: translateX(-50%);
-          width: 22px;
-          height: 22px;
-          border-radius: 50%;
-          background: radial-gradient(circle at 30% 30%, #fde047, #d97706);
-          box-shadow: 0 4px 8px rgba(0, 0, 0, 0.35);
-          z-index: 2;
-        }
-
-        .photo-frame {
-          width: 100%;
-          aspect-ratio: 4 / 4.3;
-          border-radius: 10px;
-          overflow: hidden;
-          background: linear-gradient(135deg, #1e1b4b, #312e81);
-          position: relative;
-          display: flex;
-          align-items: center;
-          justify-content: center;
-        }
-
-        .photo-frame img {
-          width: 100%;
-          height: 100%;
-          object-fit: cover;
-          display: block;
-        }
-
-        .photo-placeholder {
-          text-align: center;
-          padding: 20px;
-          color: #cbd5e1;
-          display: flex;
-          flex-direction: column;
-          align-items: center;
-          gap: 8px;
-        }
-
-        .photo-caption {
-          font-family: 'Dancing Script', cursive;
-          font-size: 1.4rem;
-          font-weight: 700;
-          color: #334155;
-          text-align: center;
-          margin-top: 14px;
-        }
-
-        .photo-edit-btn {
-          margin-top: 10px;
-          width: 100%;
-          padding: 7px 12px;
-          border-radius: 8px;
-          border: 1px dashed #94a3b8;
-          background: #f1f5f9;
-          color: #475569;
-          font-size: 0.82rem;
-          font-weight: 600;
-          cursor: pointer;
-          transition: all 0.2s ease;
-        }
-        .photo-edit-btn:hover {
-          background: #e2e8f0;
-          color: #0f172a;
-        }
-
-        .url-input-box {
-          margin-top: 10px;
-          display: flex;
-          flex-direction: column;
-          gap: 6px;
-        }
-        .url-input-box input {
-          width: 100%;
-          padding: 7px 10px;
-          border-radius: 8px;
-          border: 1px solid #cbd5e1;
-          font-size: 0.85rem;
-          outline: none;
-        }
-        .url-input-actions {
-          display: flex;
-          gap: 6px;
-        }
-        .url-input-actions button {
-          flex: 1;
-          padding: 6px;
-          border-radius: 6px;
-          border: none;
-          font-size: 0.8rem;
-          font-weight: 600;
-          cursor: pointer;
-        }
-
-        /* 3 Thiệp Lật 3D */
-        .wishes-grid {
-          display: grid;
-          grid-template-columns: repeat(auto-fit, minmax(280px, 1fr));
-          gap: 24px;
-        }
-
-        .flip-card {
-          height: 230px;
-          perspective: 1000px;
-          cursor: pointer;
-        }
-
-        .flip-card-inner {
-          position: relative;
-          width: 100%;
-          height: 100%;
-          transition: transform 0.7s cubic-bezier(0.34, 1.56, 0.64, 1);
-          transform-style: preserve-3d;
-        }
-
-        .flip-card.flipped .flip-card-inner {
-          transform: rotateY(180deg);
-        }
-
-        .flip-front,
-        .flip-back {
-          position: absolute;
-          inset: 0;
-          backface-visibility: hidden;
-          border-radius: 22px;
-          padding: 26px;
-          display: flex;
-          flex-direction: column;
-          align-items: center;
-          justify-content: center;
-          text-align: center;
-          box-shadow: 0 16px 36px rgba(0, 0, 0, 0.35);
-        }
-
-        .flip-front {
-          background: rgba(255, 255, 255, 0.06);
-          border: 1px solid rgba(255, 255, 255, 0.16);
-          backdrop-filter: blur(12px);
-        }
-
-        .flip-back {
-          transform: rotateY(180deg);
-          color: #ffffff;
-          line-height: 1.65;
-          font-size: 0.98rem;
-          font-weight: 500;
-        }
-
-        /* Thanh công cụ nổi góc dưới */
-        .floating-controls {
-          position: fixed;
-          bottom: 20px;
-          right: 20px;
-          display: flex;
-          gap: 10px;
-          z-index: 100;
-        }
-
-        .float-btn {
-          background: rgba(15, 23, 42, 0.82);
-          color: #fde68a;
-          border: 1px solid rgba(251, 191, 36, 0.45);
-          backdrop-filter: blur(12px);
-          padding: 10px 16px;
-          border-radius: 999px;
-          font-size: 0.88rem;
-          font-weight: 600;
-          cursor: pointer;
-          box-shadow: 0 8px 20px rgba(0, 0, 0, 0.4);
-          transition: transform 0.2s ease;
-        }
-        .float-btn:hover {
-          transform: scale(1.06);
-        }
-      `}</style>
-
-      {/* Hiệu ứng đốm sáng nền & Canvas pháo giấy */}
-      <div className="ambient-orb orb-1" />
-      <div className="ambient-orb orb-2" />
-      <div className="ambient-orb orb-3" />
-      <canvas ref={canvasRef} className="confetti-canvas" />
-
-      {!giftOpened ? (
-        /* MÀN 1: HỘP QUÀ BẤT NGỜ */
-        <div className="gift-intro">
-          <div className="intro-badge">✨ Special Birthday Edition ✨</div>
-          <h1 className="intro-title">Có Một Món Quà Đặc Biệt Dành Cho</h1>
-          <h2
-            style={{
-              fontFamily: "'Dancing Script', cursive",
-              fontSize: 'clamp(2.4rem, 6vw, 3.8rem)',
-              color: '#f472b6',
-              marginBottom: '12px',
-            }}
-          >
-            Bùi Thanh Minh
-          </h2>
-          <p className="intro-sub">Chạm vào hộp quà bên dưới để mở điều bất ngờ nhé!</p>
-
-          <div
-            className={`gift-box-wrapper ${openingAnim ? 'opening' : ''}`}
-            onClick={handleOpenGift}
-            role="button"
-            tabIndex={0}
-            onKeyDown={(e) => e.key === 'Enter' && handleOpenGift()}
-          >
-            <div className="gift-glow" />
-            <div className="gift-lid">
-              <span className="gift-bow">🎀</span>
-            </div>
-            <div className="gift-base" />
-          </div>
+    <div className="app" onPointerDown={onDown} onPointerMove={onMove}>
+      <style>{CSS}</style>
+      <canvas ref={bg} className="cv bgc" aria-hidden />
+      <canvas ref={fg} className="cv fgc" aria-hidden />
+      <button className="music" onClick={toggleMusic} aria-pressed={music}>
+        <span className={`eq${music ? ' on' : ''}`}><i /><i /><i /></span>{music ? 'Tắt nhạc' : 'Bật nhạc'}
+      </button>
+
+      <header className="hero">
+        <p className="greet">Chúc mừng sinh nhật</p>
+        <h1 className="name" aria-label={NAME}>
+          {words.map((w, wi) => (
+            <span className="word" key={wi} aria-hidden>
+              {[...w].map((ch, ci) => <span key={ci} className="ch" style={{ '--i': offs[wi] + ci, '--c': COLORS[(offs[wi] + ci) % 5] } as CSSProperties}>{ch}</span>)}
+            </span>
+          ))}
+        </h1>
+        <p className="sub">Một ngày để được vui, được yêu thương và được làm mọi điều mình thích.</p>
+        <p className="cue">Kéo xuống để thắp sáng chiếc bánh<svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2"><path d="M6 9l6 6 6-6" /></svg></p>
+      </header>
+
+      <section className="sec">
+        <h2>Thổi nến thôi nào</h2>
+        <div className="cakeWrap" style={{ '--lit': litCount / CANDLES } as CSSProperties}><Cake lit={lit} onBlow={blow} /></div>
+        <p className="status" aria-live="polite">{status}</p>
+        {mic === 'on' && <span className="meter"><span ref={meter} /></span>}
+        <div className="actions">
+          {!celebrate && mic !== 'on' && <button className="btn" onClick={startMic}>Thổi bằng micro</button>}
+          {mic === 'on' && <button className="btn ghost" onClick={stopMic}>Tắt micro</button>}
+          {celebrate && <button className="btn ghost" onClick={relight}>Thắp lại nến</button>}
         </div>
-      ) : (
-        /* MÀN 2: KHÔNG GIAN TIỆC SINH NHẬT */
-        <div className="main-container">
-          {/* 4 Quả bóng bay tương tác */}
-          <div className="balloons-row">
-            {balloons.map((b) =>
-              b.popped ? (
-                <div key={b.id} className="balloon-popped" title="Đã nổ!">
-                  ✨
-                </div>
-              ) : (
-                <div
-                  key={b.id}
-                  className="balloon-item"
-                  style={{
-                    background: `radial-gradient(circle at 30% 30%, #ffffff, ${b.color})`,
-                    boxShadow: `0 10px 25px ${b.glow}`,
-                  }}
-                  onClick={(e) => handlePopBalloon(b.id, e)}
-                  title="Chạm để làm nổ bóng bay!"
-                >
-                  🎈
-                </div>
-              )
-            )}
-          </div>
+      </section>
 
-          {popMessage && <div className="pop-banner">{popMessage}</div>}
-
-          {/* Tiêu đề chính */}
-          <header className="hero-header">
-            <div className="hero-subtitle">Happy Birthday To You</div>
-            <h1 className="hero-name">Bùi Thanh Minh</h1>
-            <p className="hero-desc">
-              Chúc mừng sinh nhật! Chúc Minh một tuổi mới thật rực rỡ, luôn giữ vững ngọn lửa đam mê,
-              gặt hái thật nhiều thành công và tận hưởng trọn vẹn từng khoảnh khắc tuyệt vời nhất!
-            </p>
-          </header>
-
-          {/* Bánh kem & Thổi nến tương tác */}
-          <section className="cake-section">
-            <h2 className="section-heading">🎂 Nghi Thức Thổi Nến Ước Nguyện</h2>
-            <p className="section-hint">
-              Nhắm mắt lại, ước một điều thật đẹp rồi chạm vào từng ngọn nến (hoặc bấm nút bên dưới) để thổi nến!
-            </p>
-
-            <div className="cake-stage">
-              <div className="candles-row">
-                {candlesLit.map((isLit, idx) => (
-                  <div
-                    key={idx}
-                    className="candle-unit"
-                    onClick={() => toggleSingleCandle(idx)}
-                    title={isLit ? 'Chạm để thổi tắt nến' : 'Chạm để thắp lại'}
-                  >
-                    {isLit ? <div className="flame" /> : <div className="smoke" />}
-                    <div className="candle-stick" />
-                  </div>
-                ))}
-              </div>
-              <div className="cake-top-tier" />
-              <div className="cake-bottom-tier">Thanh Minh</div>
-              <div className="cake-plate" />
-            </div>
-
-            <div style={{ display: 'flex', gap: '12px', justifyContent: 'center', flexWrap: 'wrap' }}>
-              {candlesLit.some((lit) => lit) ? (
-                <button className="btn-action" onClick={blowAllCandles}>
-                  🌬️ Thổi Tất Cả Nến
+      <section className="sec">
+        <h2>Lời chúc dành cho Minh</h2>
+        {!celebrate ? <p className="locked">Thổi tắt hết nến để mở lời chúc và những quả bóng bay.</p> : (
+          <div className="panel">
+            <p className="typed"><span className="ghost">{MESSAGE}</span><span className="live">{typed}</span></p>
+            <div className="balloons">
+              {BALLOONS.map((b, i) => (
+                <button key={i} className={`balloon${popped[i] ? ' popped' : ''}`} style={{ '--c': b.c, '--i': i } as CSSProperties}
+                  onClick={(e) => pop(i, e.currentTarget)} aria-label={`Bóng bay ${i + 1}`}>
+                  <span className="body" /><span className="string" />
                 </button>
-              ) : (
-                <button className="btn-secondary" onClick={relightCandles}>
-                  🔥 Thắp Lại Nến
-                </button>
-              )}
-            </div>
-
-            {wishUnlocked && (
-              <div className="secret-wish-box">
-                <h3 style={{ color: '#fde047', marginBottom: '8px', fontSize: '1.2rem' }}>
-                  🌟 Điều Ước Đã Được Gửi Lên Vũ Trụ!
-                </h3>
-                <p style={{ color: '#f1f5f9', lineHeight: 1.65 }}>
-                  Chúc mọi dự định trong tuổi mới của <strong>Bùi Thanh Minh</strong> đều trở thành hiện thực.
-                  Cứ tự tin tiến về phía trước nhé, những điều tốt đẹp nhất đang chờ đón bạn!
-                </p>
-              </div>
-            )}
-          </section>
-
-          {/* 4 Khung Ảnh Kỷ Niệm */}
-          <section className="gallery-section">
-            <div className="gallery-header">
-              <h2 className="section-heading">📸 Góc Lưu Giữ Kỷ Niệm</h2>
-              <p className="section-hint">
-                4 khung ảnh dành riêng cho Minh — Bạn có thể gắn link trực tiếp trong code <code>App.tsx</code> hoặc bấm nút bên dưới từng khung để dán thử ngay!
-              </p>
-            </div>
-
-            <div className="photo-grid">
-              {photos.map((photo, index) => (
-                <div
-                  key={photo.id}
-                  className="polaroid-card"
-                  style={{ transform: `rotate(${photo.rotation})` }}
-                >
-                  <div className="polaroid-pin" />
-                  <div className="photo-frame">
-                    {photo.url ? (
-                      <img src={photo.url} alt={`Kỷ niệm ${index + 1}`} />
-                    ) : (
-                      <div className="photo-placeholder">
-                        <span style={{ fontSize: '2.2rem' }}>🖼️</span>
-                        <strong style={{ color: '#fde68a', fontSize: '0.95rem' }}>
-                          Khung Ảnh Số {index + 1}
-                        </strong>
-                        <span style={{ fontSize: '0.8rem', opacity: 0.8 }}>
-                          Thêm link ảnh vào <code>INITIAL_PHOTOS[{index}]</code>
-                        </span>
-                      </div>
-                    )}
-                  </div>
-
-                  <div className="photo-caption">{photo.caption}</div>
-
-                  {editingPhotoId === photo.id ? (
-                    <div className="url-input-box">
-                      <input
-                        type="text"
-                        placeholder="Dán đường dẫn ảnh (https://...)"
-                        value={tempUrl}
-                        onChange={(e) => setTempUrl(e.target.value)}
-                      />
-                      <div className="url-input-actions">
-                        <button
-                          style={{ background: '#ec4899', color: '#fff' }}
-                          onClick={() => handleSavePhotoUrl(photo.id)}
-                        >
-                          Lưu ảnh
-                        </button>
-                        <button
-                          style={{ background: '#cbd5e1', color: '#1e293b' }}
-                          onClick={() => setEditingPhotoId(null)}
-                        >
-                          Hủy
-                        </button>
-                      </div>
-                    </div>
-                  ) : (
-                    <button
-                      className="photo-edit-btn"
-                      onClick={() => {
-                        setEditingPhotoId(photo.id);
-                        setTempUrl(photo.url);
-                      }}
-                    >
-                      🔗 Gắn / Đổi link ảnh #{index + 1}
-                    </button>
-                  )}
-                </div>
               ))}
             </div>
-          </section>
+            <p className="wishbox" key={wish ?? 'none'}>{wish ?? 'Chạm vào một quả bóng bay để nhận lời chúc'}</p>
+            <button className="btn" onClick={() => { for (let i = 0; i < 4; i++) window.setTimeout(() => fx.firework(window.innerWidth * (0.15 + Math.random() * 0.7), window.innerHeight * (0.15 + Math.random() * 0.4)), i * 300) }}>Bắn thêm pháo hoa</button>
+          </div>
+        )}
+      </section>
 
-          {/* 3 Phong thư lời chúc lật 3D */}
-          <section>
-            <div className="gallery-header">
-              <h2 className="section-heading">💌 Lời Chúc Bí Mật</h2>
-              <p className="section-hint">Chạm vào từng tấm thiệp bên dưới để lật mở lời chúc!</p>
-            </div>
-
-            <div className="wishes-grid">
-              {WISH_CARDS.map((card) => {
-                const isFlipped = !!flippedCards[card.id];
-                return (
-                  <div
-                    key={card.id}
-                    className={`flip-card ${isFlipped ? 'flipped' : ''}`}
-                    onClick={() => {
-                      setFlippedCards((prev) => ({ ...prev, [card.id]: !prev[card.id] }));
-                      if (!isFlipped) spawnConfetti(window.innerWidth / 2, window.innerHeight * 0.75, 40);
-                    }}
-                  >
-                    <div className="flip-card-inner">
-                      <div className="flip-front">
-                        <span style={{ fontSize: '2.6rem', marginBottom: '12px' }}>{card.icon}</span>
-                        <h3 style={{ fontSize: '1.25rem', color: '#fde68a', marginBottom: '6px' }}>
-                          {card.title}
-                        </h3>
-                        <span style={{ fontSize: '0.85rem', color: '#94a3b8' }}>
-                          (Chạm để mở thiệp ✨)
-                        </span>
-                      </div>
-                      <div className="flip-back" style={{ background: card.gradient }}>
-                        <p>{card.message}</p>
-                      </div>
-                    </div>
-                  </div>
-                );
-              })}
-            </div>
-          </section>
+      <section className="sec">
+        <h2>Khung ảnh kỷ niệm</h2>
+        <div className="gallery">
+          {PHOTOS.slice(0, 4).map((p, i) => (
+            <Tilt key={i} rot={ROTS[i]} onActivate={(el) => { const r = el.getBoundingClientRect(); fx.confetti(r.left + r.width / 2, r.top + r.height / 2, 36) }}>
+              <figure className={`frame f-${VARIANTS[i]}`}>
+                <div className="pic">
+                  {p.src ? <img src={p.src} alt={p.caption} draggable={false} loading="lazy" /> : <div className="ph"><b>Ảnh {i + 1}</b><span>Thêm đường dẫn ảnh vào</span><code>PHOTOS[{i}].src</code></div>}
+                </div>
+                <figcaption className="cap">{p.caption}</figcaption>
+                <span className="glare" />
+              </figure>
+            </Tilt>
+          ))}
         </div>
-      )}
+      </section>
 
-      {/* Nút điều khiển nổi góc phải dưới */}
-      <div className="floating-controls">
-        <button
-          className="float-btn"
-          onClick={() => spawnConfetti(window.innerWidth / 2, window.innerHeight / 2, 110)}
-        >
-          🎉 Bắn Pháo Hoa
-        </button>
-        <button className="float-btn" onClick={toggleBirthdayMusic}>
-          {isPlayingMusic ? '🔊 Tắt Nhạc' : '🎵 Bật Nhạc HPBD'}
-        </button>
-      </div>
+      <footer className="foot">Gửi Minh, từ {SENDER}.</footer>
     </div>
-  );
+  )
 }
 
-export default App;
+const CSS = `
+@import url('https://fonts.googleapis.com/css2?family=Fraunces:ital,opsz,wght@0,9..144,500..900;1,9..144,500..700&family=Be+Vietnam+Pro:wght@400;500;600&display=swap');
+html,body{margin:0;background:#120E2B}
+body{display:block!important}
+#root{max-width:none!important;width:100%;margin:0!important;padding:0!important;text-align:initial!important}
+.app{--ink:#120E2B;--pink:#FF5C9E;--gold:#FFC857;--mint:#6EE7C8;--lav:#B9A4FF;position:relative;min-height:100vh;overflow-x:hidden;color:#F6F0FF;font-family:'Be Vietnam Pro',system-ui,sans-serif;line-height:1.6;
+ background:radial-gradient(900px 600px at 15% 0%,#2A1B6B 0,transparent 70%),radial-gradient(800px 600px at 90% 40%,#4B1B5E 0,transparent 70%),var(--ink)}
+.app *{box-sizing:border-box}
+.app :focus-visible{outline:2px solid var(--gold);outline-offset:3px}
+.cv{position:fixed;inset:0;pointer-events:none}.bgc{z-index:0}.fgc{z-index:60}
+.hero,.sec,.foot{position:relative;z-index:1}
+.hero{min-height:100svh;display:flex;flex-direction:column;align-items:center;justify-content:center;text-align:center;padding:60px 20px 40px}
+.greet{margin:0 0 .3em;font-family:Fraunces,Georgia,serif;font-style:italic;font-weight:500;font-size:clamp(1.3rem,3.6vw,2.2rem);color:var(--lav)}
+.name{margin:0;font-family:Fraunces,Georgia,serif;font-weight:800;font-size:clamp(3.2rem,13vw,10rem);line-height:.98;letter-spacing:-.02em;text-shadow:0 0 60px rgba(255,92,158,.4)}
+.word{display:inline-block;margin:0 .12em}
+.ch{display:inline-block;cursor:default;animation:rise .9s cubic-bezier(.2,.9,.25,1.2) backwards;animation-delay:calc(var(--i)*55ms + 150ms);transition:color .2s,transform .25s}
+.ch:hover{color:var(--c);transform:translateY(-.14em) rotate(-6deg) scale(1.1)}
+@keyframes rise{from{opacity:0;transform:translateY(.7em) rotate(8deg)}}
+.sub{max-width:34ch;margin:1.4em 0 0;font-size:1.1rem;color:#d8cdf5}
+.cue{margin:3.2em 0 0;display:flex;gap:6px;align-items:center;font-size:.9rem;color:var(--mint)}
+.sec{max-width:1080px;margin:0 auto;padding:clamp(56px,10vw,110px) 20px;text-align:center}
+.sec h2{margin:0 0 .5em;font-family:Fraunces,Georgia,serif;font-weight:700;font-size:clamp(1.8rem,4.5vw,3rem);line-height:1.15}
+.cakeWrap{position:relative;width:min(420px,88vw);margin:20px auto 0}
+.cakeWrap::before{content:'';position:absolute;inset:-30% -30% 0;background:radial-gradient(closest-side at 50% 38%,rgba(255,200,87,.38),transparent 70%);opacity:var(--lit);transition:opacity 1s;pointer-events:none}
+.cake{position:relative;width:100%;height:auto;display:block;overflow:visible}
+.wick{cursor:pointer}
+.flame{transform-box:fill-box;transform-origin:50% 100%;animation:flick .9s ease-in-out infinite alternate}
+@keyframes flick{from{transform:scale(1) rotate(-2deg)}to{transform:scale(.92,1.1) rotate(2deg)}}
+.smoke{transform-box:fill-box;transform-origin:50% 100%;animation:smoke 2.2s ease-out forwards}
+@keyframes smoke{from{opacity:.9;transform:translateY(0) scaleY(.6)}to{opacity:0;transform:translateY(-26px) scaleY(1.2)}}
+.status{min-height:3.2em;max-width:44ch;margin:18px auto 0;color:#d8cdf5}
+.meter{display:block;width:180px;height:6px;margin:10px auto 0;border-radius:9px;background:rgba(255,255,255,.12);overflow:hidden}
+.meter span{display:block;height:100%;transform-origin:left;transform:scaleX(0);background:linear-gradient(90deg,var(--mint),var(--gold),var(--pink))}
+.actions{display:flex;gap:12px;justify-content:center;flex-wrap:wrap;margin-top:16px}
+.btn{font:600 1rem 'Be Vietnam Pro',sans-serif;cursor:pointer;padding:.75em 1.5em;border-radius:999px;border:2px solid var(--pink);background:var(--pink);color:#1a0f2e;transition:transform .15s,box-shadow .2s}
+.btn:hover{transform:translateY(-2px);border-color:var(--pink);box-shadow:0 10px 26px -8px var(--pink)}
+.btn.ghost{background:transparent;color:#fff;border-color:rgba(255,255,255,.35)}
+.btn.ghost:hover{border-color:#fff;box-shadow:none}
+.music{position:fixed;top:14px;right:14px;z-index:70;display:flex;align-items:center;gap:8px;cursor:pointer;font:500 .85rem 'Be Vietnam Pro',sans-serif;padding:.5em 1em;border-radius:999px;border:1px solid rgba(255,255,255,.25);background:rgba(18,14,43,.7);color:#fff;backdrop-filter:blur(8px)}
+.music:hover{border-color:var(--gold)}
+.eq{display:flex;align-items:flex-end;gap:2px;height:12px}
+.eq i{width:3px;height:4px;background:var(--gold);border-radius:2px}
+.eq.on i{animation:eq .7s ease-in-out infinite alternate}.eq.on i:nth-child(2){animation-delay:.2s}.eq.on i:nth-child(3){animation-delay:.4s}
+@keyframes eq{to{height:12px}}
+.locked{color:#b9aedb;margin:0}
+.panel{max-width:760px;margin:0 auto;padding:clamp(22px,4vw,44px);border-radius:28px;border:1px solid rgba(255,255,255,.14);background:rgba(255,255,255,.05);backdrop-filter:blur(10px)}
+.typed{display:grid;margin:0;font-family:Fraunces,Georgia,serif;font-size:clamp(1.1rem,2.4vw,1.4rem);line-height:1.7;text-align:left}
+.typed>span{grid-area:1/1}.ghost{visibility:hidden}
+.balloons{display:flex;justify-content:center;flex-wrap:wrap;gap:clamp(10px,3vw,34px);margin:34px 0 8px;min-height:150px}
+.balloon{position:relative;width:64px;height:84px;padding:0;border:0;background:none;cursor:pointer;animation:bob 3.4s ease-in-out infinite;animation-delay:calc(var(--i)*-.55s);transition:transform .25s,opacity .2s}
+.balloon:hover{border-color:transparent}
+.balloon .body{position:absolute;inset:0 0 12px;border-radius:50% 50% 48% 48%/58% 58% 42% 42%;background:radial-gradient(circle at 32% 28%,rgba(255,255,255,.75) 0 6%,transparent 22%),var(--c);box-shadow:inset -8px -10px 18px rgba(0,0,0,.18),0 10px 24px -8px var(--c)}
+.balloon .body::after{content:'';position:absolute;left:50%;bottom:-5px;width:9px;height:9px;background:var(--c);border-radius:2px;transform:translateX(-50%) rotate(45deg)}
+.balloon .string{position:absolute;left:50%;top:78px;width:1.5px;height:50px;background:linear-gradient(rgba(255,255,255,.6),transparent)}
+.balloon.popped{animation:none;transform:scale(0);opacity:0;pointer-events:none}
+@keyframes bob{50%{transform:translateY(-10px) rotate(2deg)}}
+.wishbox{min-height:3.4em;margin:6px 0 18px;color:var(--gold);font-weight:500;animation:fade .5s}
+@keyframes fade{from{opacity:0;transform:translateY(6px)}}
+.gallery{display:grid;grid-template-columns:repeat(auto-fit,minmax(230px,1fr));gap:clamp(34px,4vw,56px) clamp(20px,3vw,40px);justify-items:center;align-items:center;margin-top:36px}
+.tilt{--rx:0deg;--ry:0deg;--glare:0;width:100%;max-width:280px;cursor:pointer;transform:rotate(var(--rot)) perspective(900px) rotateX(var(--rx)) rotateY(var(--ry));transition:transform .45s cubic-bezier(.2,.8,.2,1)}
+.tilt:hover{transition:transform .08s linear}
+.frame{position:relative;margin:0}
+.pic{position:relative;overflow:hidden;background:#241c52}
+.pic img{position:absolute;inset:0;width:100%;height:100%;object-fit:cover;display:block}
+.ph{position:absolute;inset:0;display:grid;place-content:center;gap:4px;padding:12px;font-size:.82rem;color:rgba(255,255,255,.7);background:repeating-linear-gradient(135deg,rgba(255,255,255,.05) 0 12px,transparent 12px 24px)}
+.ph b{font-family:Fraunces,serif;font-size:1.5rem;color:#fff}.ph code{color:var(--gold);font-size:.74rem}
+.glare{position:absolute;inset:0;border-radius:inherit;pointer-events:none;opacity:var(--glare);transition:opacity .3s;background:radial-gradient(circle at var(--gx,50%) var(--gy,50%),rgba(255,255,255,.4),transparent 55%)}
+.cap{position:absolute;left:var(--in);right:var(--in);bottom:var(--in);padding:26px 10px 10px;font-family:Fraunces,serif;font-style:italic;font-weight:600;font-size:1.02rem;text-shadow:0 1px 6px rgba(0,0,0,.6);background:linear-gradient(transparent,rgba(10,6,30,.75))}
+.f-polaroid{padding:14px 14px 58px;background:#FFF8EE;border-radius:4px;box-shadow:0 24px 50px -18px rgba(0,0,0,.7)}
+.f-polaroid .pic{aspect-ratio:1}
+.f-polaroid .cap{left:0;right:0;bottom:16px;padding:0;color:#4a3b5c;text-shadow:none;background:none}
+.f-polaroid::before{content:'';position:absolute;top:-12px;left:50%;width:92px;height:26px;background:rgba(110,231,200,.8);transform:translateX(-50%) rotate(-4deg);box-shadow:0 2px 6px rgba(0,0,0,.2)}
+.f-gold{--in:24px;padding:16px;border-radius:6px;background:linear-gradient(135deg,#FFF0B5,#C99524 28%,#FFE9A0 52%,#9A6A10 78%,#FFD966);box-shadow:0 24px 50px -18px rgba(0,0,0,.75)}
+.f-gold .pic{aspect-ratio:3/4;box-shadow:0 0 0 7px #17112f,0 0 0 8px rgba(255,225,140,.9)}
+.f-neon{--in:12px;padding:10px;border-radius:30px;background:#150f33;border:2px solid var(--pink);animation:neon 2.6s ease-in-out infinite alternate}
+.f-neon .pic{aspect-ratio:1;border-radius:22px}
+.f-neon .cap{border-radius:0 0 22px 22px}
+@keyframes neon{from{box-shadow:0 0 0 4px rgba(255,92,158,.12),0 0 18px rgba(255,92,158,.55),inset 0 0 14px rgba(255,92,158,.35)}to{box-shadow:0 0 0 6px rgba(255,92,158,.2),0 0 38px rgba(255,92,158,.85),inset 0 0 22px rgba(255,92,158,.5)}}
+.f-arch{--in:12px;padding:12px;border-radius:50% 50% 18px 18px/34% 34% 18px 18px;background:linear-gradient(160deg,var(--lav),#7A5CF0 50%,var(--mint));box-shadow:0 24px 50px -18px rgba(0,0,0,.75)}
+.f-arch .pic{aspect-ratio:3/4;border-radius:50% 50% 8px 8px/34% 34% 8px 8px}
+.f-arch .cap{border-radius:0 0 8px 8px}
+.foot{padding:30px 20px 60px;text-align:center;color:#b9aedb;font-family:Fraunces,serif;font-style:italic}
+@media (prefers-reduced-motion:reduce){.app *{animation-duration:.01ms!important;animation-iteration-count:1!important;transition-duration:.01ms!important}}
+`
