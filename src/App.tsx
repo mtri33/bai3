@@ -2,9 +2,9 @@
 import { useEffect, useState } from "react";
 
 const photos = [
-  { src: "", caption: "Beautiful Moments", sub: "Những khoảnh khắc đáng nhớ" },
-  { src: "", caption: "Little Memories", sub: "Những kỷ niệm tuyệt vời" },
-  { src: "", caption: "Happy Together", sub: "Những ngày thật vui" },
+  { src: "blob:https://chat.zalo.me/1c9e36f6-2c14-4173-96b1-3b6752746fdf", caption: "Beautiful Moments", sub: "Những khoảnh khắc đáng nhớ" },
+  { src: "blob:https://chat.zalo.me/eafab9f8-2df2-4848-947b-6d2729f1d962", caption: "Little Memories", sub: "Những kỷ niệm tuyệt vời" },
+  { src: "blob:https://chat.zalo.me/a7125c24-b78d-47fc-9edb-3fe022fe2825", caption: "Happy Together", sub: "Những ngày thật vui" },
   { src: "", caption: "Forever Young", sub: "Tuổi trẻ và những ước mơ" },
 ];
 
